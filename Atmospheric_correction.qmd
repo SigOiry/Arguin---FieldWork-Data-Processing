@@ -5,7 +5,7 @@ format:
     toc: false
 ---
 
-```{r data opening}
+```{r}
 #| label: setup
 #| include: false
 #| message: false
@@ -34,7 +34,7 @@ station_key <- function(x) {
 }
 
 comment_labels <- c(
-  zn = "Zostera noltei",
+  zn = "Z. noltei",
   cn = "Cymodocea nodosa",
   sand = "Sand",
   shell = "Shell",
@@ -45,15 +45,38 @@ comment_labels <- c(
   cyano = "Cyanobacteria",
   green_algae = "Green algae",
   dry_sand = "Dry sand",
-  mpb_mud = "Microphytobenthos mud",
-  mbp_mud = "Microphytobenthos mud",
-  algae_mud = "Algae on mud",
-  white_sand = "White sand",
-  seagrass = "Seagrass"
+  mpb_mud = "MPB mud",
+  mbp_mud = "MPB mud",
+  algae_mud = "Green algae",
+  white_sand = "Sand",
+  seagrass = "Z. noltei"
 )
 
+normalize_comment_code <- function(x) {
+  code <- str_trim(str_to_lower(x))
+  code <- str_replace_all(code, "\\s+", "_")
+
+  dplyr::recode(
+    code,
+    algae_on_mud = "green_algae",
+    algae_mud = "green_algae",
+    green_algae = "green_algae",
+    seagrass = "zn",
+    zostera_noltei = "zn",
+    zn = "zn",
+    mpb = "mpb_mud",
+    mbp = "mpb_mud",
+    mbp_mud = "mpb_mud",
+    mpb_mud = "mpb_mud",
+    microphytobenthos_mud = "mpb_mud",
+    white_sand = "sand",
+    sand = "sand",
+    .default = code
+  )
+}
+
 label_comment <- function(x) {
-  labelled <- unname(comment_labels[x])
+  labelled <- unname(comment_labels[normalize_comment_code(x)])
   fallback <- str_to_sentence(str_replace_all(x, "_", " "))
   ifelse(is.na(labelled), fallback, labelled)
 }
@@ -80,14 +103,25 @@ gps_log <- read_excel("Data/GPS/Info spectral measure_biomass core_BdA 2026.xlsx
 
 gps_points <- gps_log %>%
   transmute(
+    station_key = station_key(station),
     gps_waypoint = suppressWarnings(as.integer(waypoint)),
     acquisition_date = as.Date(date),
     location = location,
     lat = suppressWarnings(as.numeric(lat)),
     lon = suppressWarnings(as.numeric(lon))
   ) %>%
-  filter(!is.na(gps_waypoint), !is.na(lat), !is.na(lon)) %>%
-  distinct(gps_waypoint, .keep_all = TRUE)
+  filter(!is.na(lat), !is.na(lon)) %>%
+  distinct(station_key, gps_waypoint, .keep_all = TRUE)
+
+gps_by_waypoint <- gps_points %>%
+  filter(!is.na(gps_waypoint)) %>%
+  distinct(gps_waypoint, .keep_all = TRUE) %>%
+  select(gps_waypoint, acquisition_date, location, lat, lon)
+
+gps_by_station <- gps_points %>%
+  filter(station_key != "") %>%
+  distinct(station_key, .keep_all = TRUE) %>%
+  select(station_key, acquisition_date, location, lat, lon)
 
 mauritania_samples <- asd_log %>%
   transmute(
@@ -97,54 +131,98 @@ mauritania_samples <- asd_log %>%
     target = label_comment(comment)
   ) %>%
   semi_join(asd_stations, by = "station_key") %>%
-  left_join(gps_points, by = "gps_waypoint") %>%
+  left_join(
+    gps_by_waypoint %>%
+      rename_with(~ paste0(.x, "_waypoint"), c(acquisition_date, location, lat, lon)),
+    by = "gps_waypoint"
+  ) %>%
+  left_join(
+    gps_by_station %>%
+      rename_with(~ paste0(.x, "_station"), c(acquisition_date, location, lat, lon)),
+    by = "station_key"
+  ) %>%
+  mutate(
+    acquisition_date = coalesce(acquisition_date_waypoint, acquisition_date_station),
+    location = coalesce(location_waypoint, location_station),
+    lat = coalesce(lat_waypoint, lat_station),
+    lon = coalesce(lon_waypoint, lon_station)
+  ) %>%
+  select(station, station_key, gps_waypoint, target, acquisition_date, location, lat, lon) %>%
   filter(
     !is.na(lat),
     !is.na(lon),
     between(lat, 14, 28),
     between(lon, -18, -4)
   ) %>%
-  arrange(station) %>%
   mutate(
+    date_group = format(acquisition_date, "%Y-%m-%d"),
     popup = paste0(
       "<strong>", htmlEscape(station), "</strong><br>",
       htmlEscape(target), "<br>",
       htmlEscape(location), "<br>",
       ifelse(is.na(acquisition_date), "NA", format(acquisition_date, "%Y-%m-%d"))
     )
-  )
+  ) %>%
+  arrange(acquisition_date, station)
+
+date_groups <- sort(unique(mauritania_samples$date_group))
+target_levels <- sort(unique(mauritania_samples$target))
+target_palette <- colorFactor(
+  palette = grDevices::hcl.colors(length(target_levels), "Dark 3"),
+  domain = target_levels
+)
 ```
 
-Mapped ASD samples with valid GPS coordinates in Mauritania.
+During the week of the fieldwork, ASD measurment have been acquired at the different location of the meadow visited by the team (@fig-Map_ASD_samples). These measurment covers a large range of target, from bare sediment to seagrasses and polychaete reefs. On the 27th of March, nowing that a Sentinel-2 acquisition was planned, special measurement over bright and stable targets (White and Dry Sand) were acquired in order to test the accuracy of the atmospheric correction applied to Sentinel-2 imagery (Sen2Cor).
 
-```{r leafletmap of measurment}
+```{r}
 #| fig-cap: Map of ASD sampling stations in Mauritania. Only stations with valid GPS coordinates are shown.
 #| label: fig-Map_ASD_samples
 #| echo: false
 #| error: false
 #| message: false
 #| eval: true
-#| cache: true
 #| warning: false
 #| out-width: "95%"
 
 leaflet(mauritania_samples, options = leafletOptions(preferCanvas = TRUE)) %>%
-  addProviderTiles(providers$Esri.WorldImagery) %>%
-  addCircleMarkers(
-    lng = ~lon,
-    lat = ~lat,
-    radius = 7,
-    color = "#0b5d73",
-    fillColor = "#1a9eb0",
-    fillOpacity = 0.9,
-    stroke = TRUE,
-    weight = 1,
-    popup = ~popup,
-    label = ~station,
-    clusterOptions = markerClusterOptions(
-      spiderfyOnMaxZoom = TRUE,
-      showCoverageOnHover = FALSE
-    )
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
+  {
+    map <- .
+    for (date_value in date_groups) {
+      date_data <- mauritania_samples %>%
+        filter(date_group == date_value)
+
+      map <- map %>%
+        addCircleMarkers(
+          data = date_data,
+          lng = ~lon,
+          lat = ~lat,
+          radius = 7,
+          color = ~target_palette(target),
+          fillColor = ~target_palette(target),
+          fillOpacity = 0.9,
+          stroke = TRUE,
+          weight = 1,
+          popup = ~popup,
+          label = ~station,
+          group = date_value
+        )
+    }
+    map
+  } %>%
+  addLayersControl(
+    baseGroups = c("Satellite", "OpenStreetMap"),
+    overlayGroups = date_groups,
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = target_palette,
+    values = mauritania_samples$target,
+    title = "Target",
+    opacity = 0.95
   ) %>%
   addScaleBar(position = "bottomleft") %>%
   fitBounds(

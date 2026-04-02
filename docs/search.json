@@ -4,13 +4,13 @@
     "href": "Atmospheric_correction.html",
     "title": "Atmospheric Correction",
     "section": "",
-    "text": "Mapped ASD samples with valid GPS coordinates in Mauritania.\n\n\n\n\n\n\n\n\nFigure 1: Map of ASD sampling stations in Mauritania. Only stations with valid GPS coordinates are shown."
+    "text": "During the week of the fieldwork, ASD measurment have been acquired at the different location of the meadow visited by the team (Figure 1). These measurment covers a large range of target, from bare sediment to seagrasses and polychaete reefs. On the 27th of March, nowing that a Sentinel-2 acquisition was planned, special measurement over bright and stable targets (White and Dry Sand) were acquired in order to test the accuracy of the atmospheric correction applied to Sentinel-2 imagery (Sen2Cor).\n\n\n\n\n\n\n\n\nFigure 1: Map of ASD sampling stations in Mauritania. Only stations with valid GPS coordinates are shown."
   },
   {
     "objectID": "index.html",
     "href": "index.html",
     "title": "Main Page",
     "section": "",
-    "text": "This page summarizes all data processing steps related to the fieldwork conducted on the Banc d’Arguin seagrass meadow in March 2026.\nThe objective of this work is to improve the ICE CREAMS classification model (ICE CREAMS python repository, ICE CREAMS Studio), use to identify seagrass pixel from Sentinel-2 imagery. This model has been proven to be accurate for European meadows (Davies et al. 2024a, Davies et al. 2024b, Davies et al. 2025), but personal observations suggest that it is less accurate for the Mauritanian meadow. Several axis of improvement are being explored, including: - Atmospheric correction of Sentinel-2 imagery : It seams that on some Sentinel-2 images, the atmospheric correction is not optimal, which can lead to misclassification of seagrass pixels. We will first test the accuracy of the Sen2Cor Atmospheric Correction natively applied to Sentinel-2 images, and then explore alternative atmospheric correction methods if necessary.\n\nAtmospheric Correction"
+    "text": "This page summarizes all data processing steps related to the fieldwork conducted on the Banc d’Arguin seagrass meadow in March 2026.\nThe objective of this work is to improve the ICE CREAMS classification model (ICE CREAMS python repository, ICE CREAMS Studio), use to identify seagrass pixel from Sentinel-2 imagery. This model has been proven to be accurate for European meadows (Davies et al. 2024a, Davies et al. 2024b, Davies et al. 2025), but personal observations suggest that it is less accurate for the Mauritanian meadow. Several axis of improvement are being explored, including:\n\nAtmospheric correction of Sentinel-2 imagery : It seams that on some Sentinel-2 images, the atmospheric correction is not optimal, which can lead to misclassification of seagrass pixels. We will first test the accuracy of the Sen2Cor Atmospheric Correction natively applied to Sentinel-2 images, and then explore alternative atmospheric correction methods if necessary.\n\n\nAtmospheric Correction"
   }
 ]
