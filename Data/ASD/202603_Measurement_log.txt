@@ -1,0 +1,52 @@
+**** ASD configuration ****
+number to save 20 (i.e. number of acquired spectra)
+spectrum counts
+-white 	50
+-dark	20
+-sample	50
+
+**** day log ****
+day01 20260322 Ebel Kheaiznaya - part1: dense and healthy seagrass
+	Simon & Laurent: drone flight 
+	Jim & Pierre: ASD seagrass cover (ASD data 202603_d01_all, 202603_d01_avg)
+
+day02 20260323 Ebel Kheaiznaya - part2: dense and healthy seagrass
+	Simon & Laurent: drone flight 
+	Jim & Pierre: ASD seagrass cover (ASD data 202603_d02_all, 202603_d02_avg)
+	Pierre, Simon & Laurent: ASD seagrass cores (ASD data 202603_d02_cores_all, 202603_d02_cores_avg)
+
+day03 20260324 Aouatif # sector 3: muddy, seagrass covered by mud and epiphytes
+	Simon & Laurent: drone flight 
+	Jim, Hacen & Pierre: ASD seagrass cover (ASD data 202603_d03_all, 202603_d03_avg)
+
+day04 20260325 Niroumi: 1) spartina & mangrove and 2) seagrass with may pools 
+	Simon & Laurent: drone flight 
+	Jim, Hacen & Pierre: ASD seagrass cover and 6 cores (I-N) (ASD data 202603_d04_all, 202603_d04_avg)
+
+day05 20260326 Aouatif # sector 11: dense and healthy seagrass
+	Simon & Laurent: drone flight 
+	Jim, & Pierre: ASD seagrass cover and 6 cores (A-D, F-G) (ASD data 202603_d05_all, 202603_d05_avg)
+	ASD over pools with cymodocea at increasing height 
+		H1-3: cymodocea with water & glint
+		I :cymodocea with water & glint
+		J1:cymodocea "pure"
+		J2:cymodocea with water
+		J3:cymodocea with water
+	ASD over senilia shell & seagrass at increasing distance between ASD and target (S1-4)
+		S1: senilia shell "pure"
+
+day06 20260327 Arel & Sentinel-2 matchup
+	Simon & Laurent: drone flight 
+	Jim, Hacen & Pierre: ASD seagrass cover and 6 cores (A-F) (ASD data 202603_d06_all, 202603_d06_avg)
+	Laurent, Simon, Jim, Pierre: ASD measurements for Sentinel-2 AC validation (AC01-08) 
+		5 x 20 spectra within an area with a size of a S2 pixel
+
+day07 20260328 Zira: thousands birds, seagrass meadow with intermediate density
+	Simon & Laurent: drone flight 
+	Jim, & Pierre: ASD seagrass cover and 6 cores (A-F) (ASD data 202603_d07_all, 202603_d07_avg)
+	ASD over pools with cymodocea (G-R)
+
+day08 20260329 Ebel Kheaiznaya: dense and healthy seagrass
+	Simon & Laurent: drone flight 
+	Jim & Pierre: ASD seagrass cover and 6 cores (A-F) (ASD data 202603_d08_all, 202603_d08_avg)
+

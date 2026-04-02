@@ -1,0 +1,73 @@
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.metric-card {
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: linear-gradient(160deg, #fffdf7 0%, #f3efe4 100%);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
+}
+
+.metric-card .label {
+  margin-bottom: 0.35rem;
+  color: #6d6558;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-card .value {
+  color: #143047;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.metric-card .detail {
+  margin-top: 0.55rem;
+  color: #4c514e;
+  font-size: 0.95rem;
+}
+
+.leaflet-container {
+  border-radius: 18px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+}
+
+.leaflet-container .legend {
+  text-align: left;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.leaflet-container .legend i {
+  clear: both;
+  float: left;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  margin-left: 0;
+}
+
+details {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: #faf7ef;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+table {
+  width: 100%;
+}

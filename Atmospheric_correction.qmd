@@ -1,0 +1,210 @@
+---
+title: "Atmospheric Correction"
+format:
+  html:
+    toc: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+#| message: false
+#| warning: false
+
+required_packages <- c("dplyr", "readxl", "leaflet", "htmltools", "stringr")
+
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_packages) > 0) {
+  install.packages(missing_packages, repos = "https://cloud.r-project.org")
+}
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(readxl)
+  library(leaflet)
+  library(htmltools)
+  library(stringr)
+})
+
+station_key <- function(x) {
+  str_remove_all(str_to_upper(x), "_")
+}
+
+comment_labels <- c(
+  zn = "Z. noltei",
+  cn = "Cymodocea nodosa",
+  sand = "Sand",
+  shell = "Shell",
+  worm_reef = "Worm reef",
+  spartina = "Spartina",
+  mangrove = "Mangrove",
+  vaucheria = "Vaucheria",
+  cyano = "Cyanobacteria",
+  green_algae = "Green algae",
+  dry_sand = "Dry sand",
+  mpb_mud = "MPB mud",
+  mbp_mud = "MPB mud",
+  algae_mud = "Green algae",
+  white_sand = "Sand",
+  seagrass = "Z. noltei"
+)
+
+normalize_comment_code <- function(x) {
+  code <- str_trim(str_to_lower(x))
+  code <- str_replace_all(code, "\\s+", "_")
+
+  dplyr::recode(
+    code,
+    algae_on_mud = "green_algae",
+    algae_mud = "green_algae",
+    green_algae = "green_algae",
+    seagrass = "zn",
+    zostera_noltei = "zn",
+    zn = "zn",
+    mpb = "mpb_mud",
+    mbp = "mpb_mud",
+    mbp_mud = "mpb_mud",
+    mpb_mud = "mpb_mud",
+    microphytobenthos_mud = "mpb_mud",
+    white_sand = "sand",
+    sand = "sand",
+    .default = code
+  )
+}
+
+label_comment <- function(x) {
+  labelled <- unname(comment_labels[normalize_comment_code(x)])
+  fallback <- str_to_sentence(str_replace_all(x, "_", " "))
+  ifelse(is.na(labelled), fallback, labelled)
+}
+
+reflectance_avg <- read.table(
+  "Data/ASD/202603_Reflectance_avg.txt",
+  header = TRUE,
+  check.names = FALSE
+)
+
+asd_stations <- tibble(
+  station = names(reflectance_avg)[-1],
+  station_key = station_key(station)
+)
+
+asd_log <- read.delim(
+  "Data/ASD/202603_Seagrass_cover.txt",
+  sep = "\t",
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+gps_log <- read_excel("Data/GPS/Info spectral measure_biomass core_BdA 2026.xlsx")
+
+gps_points <- gps_log %>%
+  transmute(
+    gps_waypoint = suppressWarnings(as.integer(waypoint)),
+    acquisition_date = as.Date(date),
+    location = location,
+    lat = suppressWarnings(as.numeric(lat)),
+    lon = suppressWarnings(as.numeric(lon))
+  ) %>%
+  filter(!is.na(gps_waypoint), !is.na(lat), !is.na(lon)) %>%
+  distinct(gps_waypoint, .keep_all = TRUE)
+
+mauritania_samples <- asd_log %>%
+  transmute(
+    station = station,
+    station_key = station_key(station),
+    gps_waypoint = suppressWarnings(as.integer(gps)),
+    target = label_comment(comment)
+  ) %>%
+  semi_join(asd_stations, by = "station_key") %>%
+  left_join(gps_points, by = "gps_waypoint") %>%
+  filter(
+    !is.na(lat),
+    !is.na(lon),
+    between(lat, 14, 28),
+    between(lon, -18, -4)
+  ) %>%
+  mutate(
+    acquisition_date = as.Date(acquisition_date),
+    date_group = format(acquisition_date, "%Y-%m-%d")
+  ) %>%
+  arrange(acquisition_date, station) %>%
+  mutate(
+    popup = paste0(
+      "<strong>", htmlEscape(station), "</strong><br>",
+      htmlEscape(target), "<br>",
+      htmlEscape(location), "<br>",
+      ifelse(is.na(acquisition_date), "NA", format(acquisition_date, "%Y-%m-%d"))
+    )
+  )
+
+date_groups <- sort(unique(mauritania_samples$date_group))
+target_levels <- sort(unique(mauritania_samples$target))
+target_palette <- colorFactor(
+  palette = grDevices::hcl.colors(length(target_levels), "Dark 3"),
+  domain = target_levels
+)
+```
+
+Mapped ASD samples with valid GPS coordinates in Mauritania.
+
+```{r}
+#| fig-cap: Map of ASD sampling stations in Mauritania. Only stations with valid GPS coordinates are shown.
+#| label: fig-Map_ASD_samples
+#| echo: false
+#| error: false
+#| message: false
+#| eval: true
+#| warning: false
+#| out-width: "95%"
+
+leaflet(mauritania_samples, options = leafletOptions(preferCanvas = TRUE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik, group = "OpenStreetMap") %>%
+  {
+    map <- .
+    for (date_value in date_groups) {
+      date_data <- mauritania_samples %>%
+        filter(date_group == date_value)
+
+      map <- map %>%
+        addCircleMarkers(
+          data = date_data,
+          lng = ~lon,
+          lat = ~lat,
+          radius = 7,
+          color = ~target_palette(target),
+          fillColor = ~target_palette(target),
+          fillOpacity = 0.9,
+          stroke = TRUE,
+          weight = 1,
+          popup = ~popup,
+          label = ~station,
+          group = date_value
+        )
+    }
+    map
+  } %>%
+  addLayersControl(
+    baseGroups = c("Satellite", "OpenStreetMap"),
+    overlayGroups = date_groups,
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = target_palette,
+    values = mauritania_samples$target,
+    title = "Target",
+    opacity = 0.95
+  ) %>%
+  addScaleBar(position = "bottomleft") %>%
+  fitBounds(
+    lng1 = min(mauritania_samples$lon),
+    lat1 = min(mauritania_samples$lat),
+    lng2 = max(mauritania_samples$lon),
+    lat2 = max(mauritania_samples$lat)
+  )
+```

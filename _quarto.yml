@@ -1,0 +1,24 @@
+project:
+  type: website
+  output-dir: "docs"
+  render:
+    - index.qmd
+    - Atmospheric_correction.qmd
+website:
+  title: "Data processing of fieldwork measurment"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: Atmospheric_correction.qmd
+        text: Atmospheric Correction
+format:
+  html:
+    theme:
+      - sandstone
+    css: styles.css
+    toc: true
+
+editor: source
+
+
