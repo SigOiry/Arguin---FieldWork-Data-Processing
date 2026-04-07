@@ -3,3 +3,7 @@ readxl
 leaflet
 htmltools
 stringr
+ggiraph
+ggplot2
+tidyr
+terra

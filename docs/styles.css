@@ -55,6 +55,23 @@
   margin-left: 0;
 }
 
+.spectra-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0 1rem;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+
+.spectra-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-weight: 400;
+}
+
 details {
   margin-top: 1rem;
   padding: 0.9rem 1rem;
