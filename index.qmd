@@ -5,6 +5,13 @@ format: html
 
 This page summarizes all data processing steps related to the fieldwork conducted on the Banc d’Arguin seagrass meadow in March 2026.
 
+::: {style="text-align: center; margin-top: 20px;"}
+<button onclick="window.open(&#39;https://nextcloud.oirysimon.com/s/3Z9GiMkdGLXj7Nn&#39;, &#39;_blank&#39;);" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+
+Access the Data
+</button>
+:::
+
 The objective of this work is to improve the ICE CREAMS classification model ([ICE CREAMS python repository](https://github.com/BedeFfinian/ICE_CREAMS), [ICE CREAMS Studio](https://github.com/SigOiry/ICE_CREAMS_STUDIO)), use to identify seagrass pixel from Sentinel-2 imagery. This model has been proven to be accurate for European meadows ([Davies et al. 2024a](https://doi.org/10.1038/s43247-024-01543-z), [Davies et al. 2024b](https://doi.org/10.1016/j.rse.2024.114340), [Davies et al. 2025](https://doi.org/10.1016/j.rse.2025.115116)), but personal observations suggest that it is less accurate for the Mauritanian meadow. 
 Several axis of improvement are being explored, including:
 

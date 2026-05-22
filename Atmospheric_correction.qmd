@@ -522,7 +522,7 @@ Although Sen2Cor yields a slightly higher R², it departs more from the 1:1 rela
 #| include: false
 #| message: false
 #| warning: false
-#| cache: false
+#| cache: true
 
 if (!requireNamespace("MapRs", quietly = TRUE)) {
   stop("MapRs must be installed before rendering this section.")
@@ -1515,4 +1515,411 @@ make_correction_comparison_widget(matchup_20260307_corrections)
 ## Times series analysis of the reflectance divergeance. 
 
 The reflectance of selected targets, assumed to remain stable over time, will be monitored and compared to the reflectance values acquired on 27 March 2026.
+
+```{r time series of atmospheric correction}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-cap: Mean Sentinel-2 reflectance spectra extracted over the Iwik and Arel AOIs for each available image date. In each panel, the 2026-03-27 reference spectrum is shown in grey and the spectrum of the panel date in goldenrod, with ribbons indicating ±1 standard deviation across AOI pixels. Line type distinguishes the atmospheric correction.
+#| fig-width: 18
+#| fig-height: 12
+#| out-width: "100%"
+
+library(tidyverse)
+
+reference_date <- as_date("2026-03-27")
+locations_to_plot <- c("Iwik", "Arel")
+
+band_lookup <- usable_s2b_bands %>%
+  select(band, band_center) %>%
+  distinct() %>%
+  filter(band != "B09") %>%
+  arrange(band_center) %>% 
+  mutate(band = case_when(band == "B1" ~ "B01",
+                          band == "B2" ~ "B02",
+                          band == "B3" ~ "B03",
+                          band == "B4" ~ "B04",
+                          band == "B5" ~ "B05",
+                          band == "B6" ~ "B06",
+                          band == "B7" ~ "B07",
+                          band == "B8" ~ "B08",
+                          band == "B8A" ~ "B8A"))
+
+csv_files <- list.files(
+  "Data/Atm_Compare_AOI",
+  pattern = "\\.csv$",
+  recursive = TRUE,
+  full.names = TRUE
+) %>%
+  tibble(path = .) %>%
+  mutate(
+    cor = case_when(
+      str_detect(path, "ACOLITE") ~ "ACOLITE",
+      TRUE ~ "Sen2Cor"
+    ),
+    date = basename(path) %>%
+      str_remove("\\.csv$") %>%
+      as_date()
+  )
+
+common_dates <- csv_files %>%
+  distinct(date, cor) %>%
+  count(date, name = "n_cor") %>%
+  filter(n_cor == 2) %>%
+  pull(date) %>%
+  sort()
+
+spectra_summary <- csv_files %>%
+  filter(date %in% common_dates) %>%
+  select(path, cor, date) %>%
+  pmap_dfr(function(path, cor, date) {
+    readr::read_csv(path, show_col_types = FALSE) %>%
+      mutate(
+        cor = .env$cor,
+        file_date = .env$date
+      )
+  }) %>%
+  filter(
+    AOI %in% locations_to_plot,
+    file_date == as_date(date)
+  ) %>%
+  select(file_date, AOI, cor, any_of(band_lookup$band)) %>%
+  pivot_longer(
+    cols = any_of(band_lookup$band),
+    names_to = "band",
+    values_to = "reflectance"
+  ) %>%
+  left_join(band_lookup, by = "band") %>%
+  group_by(file_date, AOI, cor, band, band_center) %>%
+  summarise(
+    mean_reflectance = mean(reflectance, na.rm = TRUE),
+    sd_reflectance = coalesce(sd(reflectance, na.rm = TRUE), 0),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    cor = factor(cor, levels = c("Sen2Cor", "ACOLITE")),
+    AOI = factor(AOI, levels = locations_to_plot)
+  )
+
+reference_spectra <- spectra_summary %>%
+  filter(file_date == reference_date) %>%
+  select(AOI, cor, band, band_center, mean_reflectance, sd_reflectance)
+
+panel_dates <- spectra_summary %>%
+  distinct(file_date)
+
+facet_levels <- tidyr::crossing(
+  date = common_dates,
+  AOI = factor(locations_to_plot, levels = locations_to_plot)
+) %>%
+  mutate(facet_label = paste(format(date, "%Y-%m-%d"), AOI, sep = "\n")) %>%
+  pull(facet_label)
+
+plot_data <- bind_rows(
+  reference_spectra %>%
+    crossing(panel_dates) %>%
+    transmute(
+      date = file_date,
+      AOI,
+      cor,
+      band,
+      band_center,
+      mean_reflectance,
+      sd_reflectance,
+      period = "2026-03-27"
+    ),
+  spectra_summary %>%
+    transmute(
+      date = file_date,
+      AOI,
+      cor,
+      band,
+      band_center,
+      mean_reflectance,
+      sd_reflectance,
+      period = "Current date"
+    )
+) %>%
+  mutate(
+    period = factor(period, levels = c("2026-03-27", "Current date")),
+    facet_label = paste(format(date, "%Y-%m-%d"), AOI, sep = "\n"),
+    facet_label = factor(facet_label, levels = facet_levels)
+  )
+
+comparison_colors <- c(
+  "2026-03-27" = "grey55",
+  "Current date" = "goldenrod3"
+)
+plot_data %>% 
+  dplyr::filter(cor == "Sen2Cor") %>%
+ggplot(
+  aes(
+    x = band_center,
+    y = mean_reflectance,
+    color = period,
+    fill = period,
+    linetype = cor,
+    group = interaction(period, cor)
+  )
+) +
+  geom_ribbon(
+    aes(
+      ymin = pmax(mean_reflectance - sd_reflectance, 0),
+      ymax = mean_reflectance + sd_reflectance
+    ),
+    alpha = 0.14,
+    color = NA
+  ) +
+  geom_line(linewidth = 0.6, na.rm = TRUE) +
+  geom_point(size = 0.8, na.rm = TRUE) +
+  facet_wrap(~facet_label, ncol = 6) +
+  scale_color_manual(values = comparison_colors, drop = FALSE) +
+  scale_fill_manual(values = comparison_colors, drop = FALSE) +
+  scale_linetype_manual(
+    values = c("Sen2Cor" = "solid", "ACOLITE" = "longdash"),
+    drop = FALSE
+  ) +
+  scale_x_continuous(
+    breaks = band_lookup$band_center,
+    labels = round(band_lookup$band_center)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = "Reflectance",
+    color = NULL,
+    fill = NULL,
+    linetype = "Atmospheric correction"
+  ) +
+  guides(fill = "none") +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+    strip.text = element_text(size = 8)
+  )
+
+```
+
+To complement the spectral overlays, the figure below summarizes the band-wise distance between the mean spectrum observed on 27 March 2026 and the mean spectrum of each image date, computed separately for each AOI and atmospheric correction.
+
+```{r}
+#| echo: false
+#| label: fig-spectral_distance_metrics
+#| message: false
+#| warning: false
+#| fig-cap: Spectral distance between the 2026-03-27 reference spectrum and the mean spectrum of each image date for the Iwik and Arel AOIs. Metrics are computed band by band for each atmospheric correction; dashed horizontal lines indicate the ideal value for each metric.
+#| fig-width: 16
+#| fig-height: 14
+#| out-width: "100%"
+
+safe_spectral_r2 <- function(reference, current) {
+  valid <- is.finite(reference) & is.finite(current)
+  reference <- reference[valid]
+  current <- current[valid]
+
+  if (length(reference) < 2 || length(unique(reference)) < 2 || length(unique(current)) < 2) {
+    return(NA_real_)
+  }
+
+  stats::cor(reference, current)^2
+}
+
+spectral_distance_metrics <- spectra_summary %>%
+  rename(date = file_date) %>%
+  inner_join(
+    reference_spectra %>%
+      transmute(
+        AOI,
+        cor,
+        band,
+        reference_reflectance = mean_reflectance
+      ),
+    by = c("AOI", "cor", "band")
+  ) %>%
+  group_by(date, AOI, cor) %>%
+  summarise(
+    r2 = safe_spectral_r2(reference_reflectance, mean_reflectance),
+    bias = mean(mean_reflectance - reference_reflectance, na.rm = TRUE),
+    rmsd = sqrt(mean((mean_reflectance - reference_reflectance)^2, na.rm = TRUE)),
+    mad = mean(abs(mean_reflectance - reference_reflectance), na.rm = TRUE),
+    rpd = mean(
+      if_else(
+        !is.na(reference_reflectance) & reference_reflectance != 0,
+        (mean_reflectance - reference_reflectance) / reference_reflectance,
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100,
+    apd = mean(
+      if_else(
+        !is.na(reference_reflectance) & reference_reflectance != 0,
+        abs(mean_reflectance - reference_reflectance) / abs(reference_reflectance),
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100,
+    .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols = c(r2, bias, rmsd, mad, rpd, apd),
+    names_to = "metric",
+    values_to = "value"
+  ) %>%
+  mutate(
+    AOI = factor(AOI, levels = locations_to_plot),
+    cor = factor(cor, levels = c("Sen2Cor", "ACOLITE")),
+    metric = factor(
+      metric,
+      levels = c("r2", "bias", "rmsd", "mad", "rpd", "apd"),
+      labels = c("R²", "Bias", "RMSD", "MAD", "RPD (%)", "APD (%)")
+    )
+  )
+
+ideal_metric_values <- tibble(
+  metric = factor(
+    c("R²", "Bias", "RMSD", "MAD", "RPD (%)", "APD (%)"),
+    levels = levels(spectral_distance_metrics$metric)
+  ),
+  value = c(1, 0, 0, 0, 0, 0)
+)
+
+correction_colors <- c(
+  "Sen2Cor" = "#1b9e77",
+  "ACOLITE" = "#d95f02"
+)
+
+ggplot(
+  spectral_distance_metrics,
+  aes(
+    x = date,
+    y = value,
+    color = cor,
+    group = cor
+  )
+) +
+  geom_hline(
+    data = ideal_metric_values,
+    aes(yintercept = value),
+    inherit.aes = FALSE,
+    color = "grey70",
+    linetype = "dashed",
+    linewidth = 0.4
+  ) +
+  geom_line(linewidth = 0.5, na.rm = TRUE) +
+  geom_point(size = 1.5, na.rm = TRUE) +
+  facet_grid(metric ~ AOI, scales = "free_y") +
+  scale_color_manual(values = correction_colors, drop = FALSE) +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "3 months") +
+  labs(
+    x = "Image date",
+    y = NULL,
+    color = "Atmospheric correction"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 9)
+  )
+
+```
+
+The figure below condenses the six spectral-distance metrics into a single normalized score. For each metric, the score expresses the proximity to the ideal value (`R² = 1`; all other metrics = `0`), then averages these component scores across metrics and across the two AOIs.
+
+```{r}
+#| echo: false
+#| label: fig-overall_atm_score
+#| message: false
+#| warning: false
+#| fig-cap: Overall atmospheric-correction score for each image date. The score is computed from the normalized proximity to the ideal values of R², bias, RMSD, MAD, RPD, and APD, then averaged across Iwik and Arel.
+#| fig-width: 12
+#| fig-height: 6
+#| out-width: "90%"
+
+overall_score <- spectral_distance_metrics %>%
+  mutate(
+    metric_distance = case_when(
+      as.character(metric) == "R²" ~ abs(1 - value),
+      TRUE ~ abs(value)
+    )
+  ) %>%
+  group_by(metric) %>%
+  mutate(
+    max_metric_distance = max(metric_distance, na.rm = TRUE),
+    component_score = if_else(
+      is.finite(max_metric_distance) & max_metric_distance > 0,
+      1 - metric_distance / max_metric_distance,
+      1
+    )
+  ) %>%
+  ungroup() %>%
+  group_by(date, cor) %>%
+  summarise(
+    score = mean(component_score, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  rename(atm_cor = cor) %>%
+  mutate(
+    tooltip = paste0(
+      "Date: ", format(date, "%Y-%m-%d"),
+      "<br>Correction: ", atm_cor,
+      "<br>Score: ", format(round(score, 3), nsmall = 3, trim = TRUE)
+    ),
+    data_id = paste(atm_cor, format(date, "%Y-%m-%d"), sep = "_")
+  )
+
+overall_score_plot <- ggplot(
+  overall_score,
+  aes(
+    x = date,
+    y = score,
+    color = atm_cor,
+    group = atm_cor
+  )
+) +
+  geom_line_interactive(
+    aes(
+      data_id = atm_cor
+    ),
+    linewidth = 0.7,
+    na.rm = TRUE
+  ) +
+  geom_point_interactive(
+    aes(
+      tooltip = tooltip,
+      data_id = data_id
+    ),
+    size = 2.2,
+    na.rm = TRUE
+  ) +
+  scale_color_manual(values = correction_colors, drop = FALSE) +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "3 months") +
+  scale_y_continuous(limits = c(0, 1.02)) +
+  labs(
+    x = "Image date",
+    y = "Overall score",
+    color = "Atmospheric correction"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+girafe(
+  ggobj = overall_score_plot,
+  width_svg = 10,
+  height_svg = 5
+) %>%
+  girafe_options(
+    opts_hover(css = "stroke:black;stroke-width:1.5px;"),
+    opts_hover_inv(css = "opacity:0.25;"),
+    opts_toolbar(saveaspng = TRUE)
+  )
+
+```
+
 
